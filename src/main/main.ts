@@ -37,12 +37,6 @@ export default class AppUpdater {
 
 let mainWindow: BrowserWindow | null = null;
 
-ipcMain.on('ipc-example', async (event, arg) => {
-  const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
-  console.log(msgTemplate(arg));
-  event.reply('ipc-example', msgTemplate('pong'));
-});
-
 const getApiUrl = () => {
   const configuredUrl = process.env.MARKETEYE_API_URL?.replace(/\/+$/, '');
   if (!configuredUrl) return undefined;
@@ -117,6 +111,7 @@ const requestV2 = async <T>(
       {
         params,
         headers: { 'X-API-Key': process.env.MARKETEYE_API_KEY as string },
+        timeout: 30_000,
       }
     );
     return { ok: true, data: response.data };

@@ -36,6 +36,8 @@ describe('preload StockBounce API', () => {
     expect(api.getFrequencies).toBeUndefined();
     expect(api.http).toBeUndefined();
     expect(api.request).toBeUndefined();
+    expect(api.conn).toBeUndefined();
+    expect(Object.keys(api).sort()).toEqual(['getBounceResults', 'getDates']);
   });
 
   it('forwards the combined request and paginated sessions through IPC', async () => {

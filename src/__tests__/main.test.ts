@@ -116,6 +116,7 @@ describe('main-process v2 IPC', () => {
       {
         params: { date: '2026-10-27', lookback: 20 },
         headers: { 'X-API-Key': 'test-key' },
+        timeout: 30_000,
       }
     );
     expect(response).toEqual({ ok: true, data: payload });
@@ -137,6 +138,7 @@ describe('main-process v2 IPC', () => {
       {
         params: { cursor: 'opaque', limit: 500 },
         headers: { 'X-API-Key': 'test-key' },
+        timeout: 30_000,
       }
     );
   });

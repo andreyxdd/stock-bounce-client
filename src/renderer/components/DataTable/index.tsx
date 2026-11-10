@@ -19,10 +19,13 @@ const getUnseededLabel = (count: number | null) => {
 };
 
 const Coverage = ({ coverage }: { coverage: ICoverage }) => {
-  const coverageLabel =
-    coverage.status === 'degraded'
-      ? 'Estimated historical coverage. This reconstructed universe may be incomplete.'
-      : 'Exact historical coverage.';
+  const isReconstructed = coverage.universe_provenance.startsWith('archived');
+  let coverageLabel = 'Exact historical coverage.';
+  if (coverage.status === 'degraded') {
+    coverageLabel = isReconstructed
+      ? 'Reconstructed universe. Membership may be incomplete.'
+      : `${coverage.exclusions_count} tickers excluded for missing history. This list may be incomplete.`;
+  }
 
   return (
     <div

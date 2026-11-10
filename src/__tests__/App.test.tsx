@@ -182,7 +182,11 @@ describe('StockBounce US all-time-high screen', () => {
     expect(
       screen.queryByRole('table', { name: 'Whole Market top 20' })
     ).toBeNull();
-    expect(screen.getByText(/estimated historical coverage/i)).toBeVisible();
+    expect(
+      screen.getByText(
+        /3 tickers excluded for missing history\. This list may be incomplete\./i
+      )
+    ).toBeVisible();
     expect(screen.getByText(/3 exclusions/i)).toBeVisible();
     expect(screen.getByText(/unseeded exclusions: unknown/i)).toBeVisible();
     expect(getBounceResults).toHaveBeenCalledTimes(1);
@@ -275,6 +279,8 @@ describe('StockBounce US all-time-high screen', () => {
     const lookback = screen.getByLabelText('Lookback (trading sessions)');
     expect(lookback).toHaveAttribute('max', '120');
     fireEvent.change(lookback, { target: { value: '60' } });
+    expect(getBounceResults).toHaveBeenCalledTimes(2);
+    fireEvent.blur(lookback);
     await waitFor(() =>
       expect(getBounceResults).toHaveBeenLastCalledWith({
         date: '2026-10-26',
@@ -284,6 +290,7 @@ describe('StockBounce US all-time-high screen', () => {
     expect(getBounceResults).toHaveBeenCalledTimes(3);
 
     fireEvent.change(lookback, { target: { value: '121' } });
+    fireEvent.keyDown(lookback, { key: 'Enter' });
     expect(
       await screen.findByText(/lookback must be between 1 and 120/i)
     ).toBeVisible();
@@ -346,6 +353,82 @@ describe('StockBounce US all-time-high screen', () => {
     expect(alert).toHaveTextContent('still being prepared');
     expect(screen.getByLabelText('US trading session')).toBeEnabled();
     expect(screen.getByLabelText('Lookback (trading sessions)')).toBeEnabled();
+  });
+
+  it('commits lookback edits on Enter instead of requesting per keystroke', async () => {
+    render(<App />);
+    await screen.findByRole('table', { name: 'Whole Market top 20' });
+    const lookback = screen.getByLabelText('Lookback (trading sessions)');
+
+    fireEvent.change(lookback, { target: { value: '1' } });
+    fireEvent.change(lookback, { target: { value: '12' } });
+    fireEvent.change(lookback, { target: { value: '120' } });
+    expect(getBounceResults).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(lookback, { key: 'Enter' });
+    await waitFor(() =>
+      expect(getBounceResults).toHaveBeenLastCalledWith({
+        date: '2026-10-27',
+        lookback: 120,
+      })
+    );
+    expect(getBounceResults).toHaveBeenCalledTimes(2);
+  });
+
+  it('explains when a selected session has no supported lookback', async () => {
+    getDates.mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          {
+            epoch: 1792876800000,
+            date_string: '2026-10-25',
+            max_lookback: 0,
+          },
+          ...sessions.data.items,
+        ],
+        next_cursor: null,
+      },
+    });
+    render(<App />);
+    await screen.findByRole('table', { name: 'Whole Market top 20' });
+
+    fireEvent.change(screen.getByLabelText('US trading session'), {
+      target: { value: '2026-10-25' },
+    });
+    expect(
+      await screen.findByText(/no prior sessions; lookback unavailable/i)
+    ).toBeVisible();
+    expect(screen.getByLabelText('Lookback (trading sessions)')).toBeDisabled();
+    expect(getBounceResults).toHaveBeenCalledTimes(1);
+  });
+
+  it('distinguishes reconstructed coverage from exclusion-only degradation', async () => {
+    getBounceResults.mockResolvedValue({
+      ok: true,
+      data: {
+        ...results.data,
+        whole_market: {
+          ...results.data.whole_market,
+          coverage: {
+            ...results.data.whole_market.coverage,
+            status: 'degraded',
+            exclusions_count: 2,
+          },
+        },
+      },
+    });
+    render(<App />);
+
+    await screen.findByRole('table', { name: 'Whole Market top 20' });
+    expect(
+      screen.getByText(
+        /reconstructed universe\. Membership may be incomplete\./i
+      )
+    ).toBeVisible();
+    expect(
+      screen.queryByText(/2 tickers excluded for missing history/i)
+    ).not.toBeInTheDocument();
   });
 
   it('removes legacy workflow controls and preserves focus during status updates', async () => {

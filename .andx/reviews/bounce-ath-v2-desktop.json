@@ -1,0 +1,45 @@
+{
+  "schema_version": 2,
+  "source": "andx-execute-and-review",
+  "plan": ".andx/plans/bounce-ath-v2-desktop.plan.md",
+  "target_branch": "main",
+  "base_sha": "1580690d6b3a8f094304748936682b1077e07ec2",
+  "head_sha": "166a9daf55c6cc7a44d06a2315904dea575ea244",
+  "reviewed_at": "2026-11-10T01:50:42.329Z",
+  "verdict": "PASS",
+  "secrets_scan": "NOT_RUN",
+  "findings": [
+    {
+      "id": "renderer-d-ts-delete-remove-the-ipc-example",
+      "status": "confirmed",
+      "severity": "medium",
+      "location": "src/renderer.d.ts:20",
+      "finding": "delete: remove the ipc-example ping/pong demo, including conn, its template script, and its main/preload handlers; replace it with nothing.",
+      "reviewers": [
+        "ponytail"
+      ]
+    },
+    {
+      "id": "types-ts-shrink-replace-the-12-line-stockbounceerror",
+      "status": "confirmed",
+      "severity": "low",
+      "location": "src/types.ts:75",
+      "finding": "shrink: replace the 12-line StockBounceError subclass with `type StockBounceError = Error & IApiError` and throw `Object.assign(new Error(response.error.message), response.error)` in unwrapIpcResponse.",
+      "reviewers": [
+        "ponytail"
+      ],
+      "resolution": "deferred"
+    },
+    {
+      "id": "app-css-responsive-filter-layout-is-overridden-by",
+      "status": "confirmed",
+      "severity": "high",
+      "location": "src/renderer/App.css:30",
+      "finding": "Responsive filter layout is overridden by the later base rule. The added media query appears before the base `.filters` rule; equal specificity means the later two-column declaration overrides the narrow-viewport single column, causing page-level overflow at 320px. The test checks only that the media query exists and misses this cascade failure.",
+      "reviewers": [
+        "bugbot"
+      ],
+      "resolution": "fixed"
+    }
+  ]
+}

@@ -11,12 +11,4 @@
   <body>
     <div id="root"></div>
   </body>
-  <script>
-    window.electronAPI.conn.once('ipc-example', (arg) => {
-      // eslint-disable-next-line no-console
-      console.log(arg);
-    });
-
-    window.electronAPI.conn.myPing();
-  </script>
 </html>

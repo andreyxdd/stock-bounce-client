@@ -370,3 +370,16 @@ describe('StockBounce US all-time-high screen', () => {
     expect(lookback).toHaveFocus();
   });
 });
+
+describe('StockBounce reflow styles', () => {
+  it('keeps the page reflowable and confines horizontal overflow to the table', () => {
+    const css = jest
+      .requireActual<typeof import('fs')>('fs')
+      .readFileSync(`${process.cwd()}/src/renderer/App.css`, 'utf8');
+    const bodyRule = css.match(/(?:^|\n)body\s*\{[^}]*\}/)?.[0] || '';
+
+    expect(bodyRule).not.toContain('min-width');
+    expect(css).toMatch(/@media \(max-width:\s*700px\)/);
+    expect(css).toMatch(/\.table-scroll\s*\{[^}]*overflow-x:\s*auto/);
+  });
+});

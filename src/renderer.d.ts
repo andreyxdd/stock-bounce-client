@@ -1,42 +1,23 @@
-import { IDataProps, IDateProps } from 'types';
-
-export interface IBounceRequest {
-  date: string;
-  period: number;
-}
-
-export interface ITrackRequest {
-  date: string;
-  tickers: Array<string>;
-}
-
-export interface IFrequenciesRequest {
-  date: string;
-  tickers: Array<string>;
-  period: number;
-}
-
-export interface IEmail {
-  body: string;
-  subject: string;
-}
-
-export interface INotificationStatus {
-  ok: boolean;
-  error: string;
-}
+import {
+  IBounceRequest,
+  IBounceResults,
+  IpcResponse,
+  ISessionPage,
+  ISessionsRequest,
+} from './types';
 
 export interface IElectronAPIConn {
-  myPing: () => Promise<void>;
-  on: () => Promise<void>;
-  once: () => Promise<void>;
+  myPing: () => void;
+  on: (channel: string, func: (...args: unknown[]) => void) => void;
+  once: (channel: string, func: (...args: unknown[]) => void) => void;
 }
 
 export interface IElectronAPI {
-  getDates: () => Promise<Array<IDateProps>>;
-  getBounceStocks: (req: IBounceRequest) => Promise<Array<IDataProps>>;
-  getTrackedStocks: (req: ITrackRequest) => Promise<Array<IDataProps>>;
-  getFrequencies: (req: IFrequenciesRequest) => Promise<any>;
+  getDates: (req?: ISessionsRequest) => Promise<IpcResponse<ISessionPage>>;
+  getBounceResults: (
+    req: IBounceRequest
+  ) => Promise<IpcResponse<IBounceResults>>;
+  conn: IElectronAPIConn;
 }
 
 declare global {

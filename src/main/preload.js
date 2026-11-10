@@ -1,10 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  getBounceStocks: (req) => ipcRenderer.invoke('get-bounce-stocks', req),
-  getTrackedStocks: (req) => ipcRenderer.invoke('get-tracked-stocks', req),
-  getFrequencies: (req) => ipcRenderer.invoke('get-frequencies', req),
-  getDates: () => ipcRenderer.invoke('get-dates'),
+  getBounceResults: (req) => ipcRenderer.invoke('get-bounce-results', req),
+  getDates: (req) => ipcRenderer.invoke('get-dates', req),
   conn: {
     myPing() {
       ipcRenderer.send('ipc-example', 'ping');
@@ -12,14 +10,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     on(channel, func) {
       const validChannels = ['ipc-example'];
       if (validChannels.includes(channel)) {
-        // Deliberately strip event as it includes `sender`
         ipcRenderer.on(channel, (event, ...args) => func(...args));
       }
     },
     once(channel, func) {
       const validChannels = ['ipc-example'];
       if (validChannels.includes(channel)) {
-        // Deliberately strip event as it includes `sender`
         ipcRenderer.once(channel, (event, ...args) => func(...args));
       }
     },

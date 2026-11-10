@@ -17,10 +17,15 @@ import axios from 'axios';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
-import { IDataProps, IDateProps } from '../types';
-
-const MARKETEYE_API_KEY = 'UgpW5hp32J3KSyGbxnKRmppprQ2xR4qrMArDNwNq';
-const MARKETEYE_API_URL = 'https://marketeye-api.herokuapp.com/api';
+import {
+  IApiError,
+  IBounceRequest,
+  IBounceResults,
+  IpcFailure,
+  IpcResponse,
+  ISessionPage,
+  ISessionsRequest,
+} from '../types';
 
 export default class AppUpdater {
   constructor() {
@@ -38,109 +43,103 @@ ipcMain.on('ipc-example', async (event, arg) => {
   event.reply('ipc-example', msgTemplate('pong'));
 });
 
-// --- UTILITIES
-const MAX_PERIOD = 18;
+const getApiUrl = () => {
+  const configuredUrl = process.env.MARKETEYE_API_URL?.replace(/\/+$/, '');
+  if (!configuredUrl) return undefined;
+  return configuredUrl.endsWith('/api')
+    ? configuredUrl
+    : `${configuredUrl}/api`;
+};
 
-async function prepareData(
-  initData: Array<Omit<IDataProps, 'frequencies'>>,
-  date: string,
-  period: number
-) {
-  try {
-    const response = await axios.get(
-      `${MARKETEYE_API_URL}/bounce/get_frequencies`,
-      {
-        params: {
-          date,
-          tickers: initData.map((row) => row.ticker).join(','),
-          period,
-          api_key: MARKETEYE_API_KEY,
-        },
-      }
-    );
-
-    if (!response.data.length)
-      throw new Error('No data in the frequencies response');
-
-    const { data }: { data: Array<string> } = response;
-    return initData.map((obj, id) => ({
-      ...obj,
-      id: id + 1,
-      frequencies: data[id],
-    }));
-  } catch (e) {
-    console.log(e);
-    return [];
-  }
-}
-
-// ---
-// Communication routes
-ipcMain.handle('get-bounce-stocks', async (_event, arg) => {
-  try {
-    const response = await axios.get(
-      `${MARKETEYE_API_URL}/bounce/get_bounce_stocks`,
-      {
-        params: {
-          date: arg.date,
-          period: arg.period + 1,
-          api_key: MARKETEYE_API_KEY,
-        },
-      }
-    );
-
-    if (!response.data.length)
-      throw new Error('No data in the stock-bounce response');
-
-    const { data }: { data: Array<Omit<IDataProps, 'frequencies'>> } = response;
-    return await prepareData(data, arg.date, MAX_PERIOD);
-  } catch (e) {
-    console.log(e);
-    return [];
-  }
-});
-
-ipcMain.handle('get-tracked-stocks', async (_event, arg) => {
-  try {
-    const response = await axios.get(
-      `${MARKETEYE_API_URL}/bounce/get_tracked_stocks`,
-      {
-        params: {
-          date: arg.date,
-          tickers: arg.tickers.join(','),
-          api_key: MARKETEYE_API_KEY,
-        },
-      }
-    );
-
-    if (!response.data.length)
-      throw new Error('No data in the stock-tracked response');
-
-    const { data }: { data: Array<Omit<IDataProps, 'frequencies'>> } = response;
-    return await prepareData(data, arg.date, MAX_PERIOD);
-  } catch (e) {
-    console.log(e);
-    return [];
-  }
-});
-
-ipcMain.handle('get-dates', async () => {
-  try {
-    const response = await axios.get(`${MARKETEYE_API_URL}/bounce/get_dates`, {
-      params: {
-        api_key: MARKETEYE_API_KEY,
+const configurationError = (): IpcFailure | null => {
+  if (!process.env.MARKETEYE_API_KEY) {
+    return {
+      ok: false,
+      error: {
+        code: 'MARKETEYE_API_KEY_MISSING',
+        message:
+          'StockBounce is not configured. Set MARKETEYE_API_KEY in the desktop main process.',
       },
-    });
-
-    const dates: IDateProps = response.data;
-    return dates;
-  } catch (e) {
-    console.log(e);
-    return [];
+    };
   }
-});
+  if (!getApiUrl()) {
+    return {
+      ok: false,
+      error: {
+        code: 'MARKETEYE_API_URL_MISSING',
+        message:
+          'StockBounce is not configured. Set MARKETEYE_API_URL in the desktop main process.',
+      },
+    };
+  }
+  return null;
+};
 
-// ---
+const requestError = (error: unknown): IpcFailure => {
+  if (axios.isAxiosError(error)) {
+    const detail = error.response?.data?.detail as IApiError | undefined;
+    if (
+      detail &&
+      typeof detail.code === 'string' &&
+      typeof detail.message === 'string'
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: detail.code,
+          message: detail.message,
+          details: detail.details,
+        },
+      };
+    }
+  }
+
+  return {
+    ok: false,
+    error: {
+      code: 'BOUNCE_REQUEST_FAILED',
+      message:
+        'The StockBounce service could not complete the request. Try again later.',
+    },
+  };
+};
+
+const requestV2 = async <T>(
+  operation: 'results' | 'sessions',
+  params: Record<string, string | number | undefined>
+): Promise<IpcResponse<T>> => {
+  const configError = configurationError();
+  if (configError) return configError;
+
+  try {
+    const response = await axios.get<T>(
+      `${getApiUrl()}/stock-bounce/v2/${operation}`,
+      {
+        params,
+        headers: { 'X-API-Key': process.env.MARKETEYE_API_KEY as string },
+      }
+    );
+    return { ok: true, data: response.data };
+  } catch (error) {
+    return requestError(error);
+  }
+};
+
+ipcMain.handle('get-bounce-results', (_event, request: IBounceRequest) =>
+  requestV2<IBounceResults>('results', {
+    date: request.date,
+    lookback: request.lookback,
+  })
+);
+
+ipcMain.handle(
+  'get-dates',
+  (_event, request: ISessionsRequest = { limit: 500 }) =>
+    requestV2<ISessionPage>('sessions', {
+      cursor: request.cursor,
+      limit: request.limit,
+    })
+);
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -212,7 +211,6 @@ const createWindow = async () => {
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
 
-  // Open urls in the user's browser
   mainWindow.webContents.on('new-window', (event, url) => {
     event.preventDefault();
     shell.openExternal(url);
@@ -223,13 +221,7 @@ const createWindow = async () => {
   new AppUpdater();
 };
 
-/**
- * Add event listeners...
- */
-
 app.on('window-all-closed', () => {
-  // Respect the OSX convention of having the application in memory even
-  // after all windows have been closed
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -240,8 +232,6 @@ app
   .then(() => {
     createWindow();
     app.on('activate', () => {
-      // On macOS it's common to re-create a window in the app when the
-      // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
     });
   })

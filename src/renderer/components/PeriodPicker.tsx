@@ -1,47 +1,55 @@
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import Select, { SelectChangeEvent } from '@mui/material/Select';
-import shallow from 'zustand/shallow';
+import useDates from '../hooks/useDates';
 import useStore from '../hooks/useStore';
 
-type Props = {
-  selectors: Array<string>;
-  offset: number;
-};
-
-const label = 'Select number of periods to compute cumulative OP/CP change';
-
-const PeriodSelectors = ({ selectors, offset }: Props) => {
-  const [currentPeriod, selectedDate] = useStore(
-    (state) => [state.period, state.selectedDate],
-    shallow
+const PeriodPicker = () => {
+  const selectedDate = useStore((state) => state.selectedDate);
+  const lookback = useStore((state) => state.lookback);
+  const { data: sessions } = useDates();
+  const selectedSession = sessions?.find(
+    (session) => session.date_string === selectedDate
   );
-  const handleChange = (event: SelectChangeEvent) => {
-    useStore.setState({
-      period: (event.target.value + offset) as any,
-      isTracking: false,
-      selectedTrackingDate: selectedDate,
-    });
-  };
+  const maxLookback = selectedSession?.max_lookback;
+  const isValid = Boolean(
+    maxLookback &&
+      Number.isInteger(lookback) &&
+      lookback >= 1 &&
+      lookback <= maxLookback
+  );
+
   return (
-    <FormControl fullWidth>
-      <InputLabel id="demo-simple-select-label">{label}</InputLabel>
-      <Select
-        labelId="demo-simple-select-label"
-        id="demo-simple-select"
-        value={(currentPeriod - offset).toString()}
-        label={label}
-        onChange={handleChange}
-      >
-        {selectors.map((periodStr: string, idx: number) => (
-          <MenuItem key={periodStr} value={idx}>
-            {periodStr}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
+    <div className="control-group">
+      <label htmlFor="lookback-input">
+        Lookback (trading sessions)
+        <input
+          id="lookback-input"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={maxLookback}
+          step={1}
+          value={lookback}
+          disabled={!selectedSession}
+          aria-invalid={!isValid}
+          aria-describedby={
+            isValid ? 'lookback-hint' : 'lookback-hint lookback-error'
+          }
+          onChange={(event) =>
+            useStore.setState({ lookback: Number(event.target.value) })
+          }
+        />
+      </label>
+      <span id="lookback-hint" className="control-hint">
+        {maxLookback
+          ? `1–${maxLookback} sessions have complete coverage`
+          : 'Select a session first'}
+      </span>
+      {!isValid && maxLookback ? (
+        <span id="lookback-error" className="control-error" role="alert">
+          Lookback must be between 1 and {maxLookback}.
+        </span>
+      ) : null}
+    </div>
   );
 };
 
-export default PeriodSelectors;
+export default PeriodPicker;

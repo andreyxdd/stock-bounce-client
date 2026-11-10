@@ -1,75 +1,58 @@
-import { Container, Grid, Divider, Typography } from '@mui/material';
-import shallow from 'zustand/shallow';
 import Navbar from './Navbar';
 import DatePicker from './DatePicker';
 import Footer from './Footer';
 import useDates from '../hooks/useDates';
-import useStore from '../hooks/useStore';
 import PeriodPicker from './PeriodPicker';
-import { getNextDates, periodArrays, termDescription } from './utils';
-import TrackPicker from './TrackPicker';
-import RangePicker from './RangePicker';
 
 interface ILayoutProps {
   children: React.ReactNode;
 }
 
 const Layout = ({ children }: ILayoutProps) => {
-  const { data: avaibleDates } = useDates();
-  const [currentTerm, selectedDate] = useStore(
-    (state) => [state.term, state.selectedDate],
-    shallow
-  );
-  const { title, desc } = termDescription[currentTerm];
-  const availableTrackDates = getNextDates(selectedDate, avaibleDates);
+  const { data: sessions, isLoading, isError, error } = useDates();
 
   return (
-    <div>
+    <div className="app-shell">
       <Navbar />
-      <Grid
-        container
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        spacing={2}
-        sx={{ pl: 4, pr: 4, pt: 4, pb: 2 }}
-      >
-        <Grid item>
+      <main className="main-content">
+        <section className="screen-heading" aria-labelledby="screen-title">
+          <h1 id="screen-title">All-time-high bounces</h1>
+          <p>
+            Positive session movers that broke their prior all-time high after a
+            negative lookback. Ranked independently within each universe.
+          </p>
+        </section>
+
+        <section className="filters" aria-label="Result filters">
           <DatePicker />
-        </Grid>
-        <Grid item xs>
-          <RangePicker />
-        </Grid>
-        <Grid item xs>
-          {availableTrackDates ? (
-            <TrackPicker availableTrackDates={availableTrackDates} />
-          ) : null}
-        </Grid>
-        <Grid item xs>
-          <PeriodPicker
-            selectors={periodArrays[currentTerm]}
-            offset={currentTerm === 'short' ? 0 : 5}
-          />
-        </Grid>
-      </Grid>
-      <Divider />
-      <Container
-        maxWidth="xl"
-        style={{ minHeight: 630, justifyContent: 'space-between' }}
-      >
-        <div style={{ marginLeft: '2.5%', marginRight: '2.5%' }}>
-          <Typography variant="h6" sx={{ mb: 1, mt: 2, fontSize: 16 }}>
-            {title}
-          </Typography>
-          <Typography variant="caption" sx={{ mb: 1, mt: 1 }}>
-            {desc}
-          </Typography>
-        </div>
-        <div style={{ width: '100%', minHeight: 630, marginBottom: 20 }}>
-          {children}
-        </div>
-        <Footer />
-      </Container>
+          <PeriodPicker />
+        </section>
+
+        {isLoading ? (
+          <div className="state-panel" role="status">
+            Loading available US trading sessions…
+          </div>
+        ) : null}
+
+        {isError ? (
+          <div className="state-panel state-panel--error" role="alert">
+            <strong>{error?.code || 'SESSIONS_REQUEST_FAILED'}</strong>
+            <p>
+              {error?.message ||
+                'Available sessions could not be loaded. Try again later.'}
+            </p>
+          </div>
+        ) : null}
+
+        {!isLoading && !isError && sessions?.length === 0 ? (
+          <div className="state-panel" role="status">
+            No US sessions with complete v2 data are available.
+          </div>
+        ) : null}
+
+        {sessions && sessions.length > 0 ? children : null}
+      </main>
+      <Footer />
     </div>
   );
 };

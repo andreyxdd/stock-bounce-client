@@ -19,13 +19,18 @@ const getUnseededLabel = (count: number | null) => {
 };
 
 const Coverage = ({ coverage }: { coverage: ICoverage }) => {
-  const isReconstructed = coverage.universe_provenance.startsWith('archived');
-  let coverageLabel = 'Exact historical coverage.';
-  if (coverage.status === 'degraded') {
-    coverageLabel = isReconstructed
-      ? 'Reconstructed universe. Membership may be incomplete.'
-      : `${coverage.exclusions_count} tickers excluded for missing history. This list may be incomplete.`;
-  }
+  const membershipEstimated =
+    coverage.status === 'degraded' &&
+    (coverage.exclusions_count === 0 ||
+      /^(partial|unavailable)_/.test(coverage.universe_provenance));
+  const notes = [
+    membershipEstimated && 'Reconstructed membership may be incomplete.',
+    coverage.exclusions_count > 0 &&
+      `${coverage.exclusions_count} tickers excluded for missing history. This list may be incomplete.`,
+  ].filter(Boolean);
+  const coverageLabel = notes.length
+    ? notes.join(' ')
+    : 'Exact historical coverage.';
 
   return (
     <div

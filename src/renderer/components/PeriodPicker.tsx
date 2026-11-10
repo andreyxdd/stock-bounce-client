@@ -51,7 +51,9 @@ const PeriodPicker = () => {
           disabled={!selectedSession || maxLookback === 0}
           aria-invalid={!isValid}
           aria-describedby={
-            isValid ? 'lookback-hint' : 'lookback-hint lookback-error'
+            !isValid && maxLookback
+              ? 'lookback-hint lookback-error'
+              : 'lookback-hint'
           }
           onChange={(event) => setDraftLookback(event.target.value)}
           onBlur={commitLookback}

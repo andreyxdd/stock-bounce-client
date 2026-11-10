@@ -399,37 +399,71 @@ describe('StockBounce US all-time-high screen', () => {
     expect(
       await screen.findByText(/no prior sessions; lookback unavailable/i)
     ).toBeVisible();
-    expect(screen.getByLabelText('Lookback (trading sessions)')).toBeDisabled();
+    const lookback = screen.getByLabelText('Lookback (trading sessions)');
+    expect(lookback).toBeDisabled();
+    expect(lookback).toHaveAttribute('aria-describedby', 'lookback-hint');
     expect(getBounceResults).toHaveBeenCalledTimes(1);
   });
 
-  it('distinguishes reconstructed coverage from exclusion-only degradation', async () => {
-    getBounceResults.mockResolvedValue({
-      ok: true,
-      data: {
-        ...results.data,
-        whole_market: {
-          ...results.data.whole_market,
-          coverage: {
-            ...results.data.whole_market.coverage,
-            status: 'degraded',
-            exclusions_count: 2,
+  it.each([
+    {
+      provenance: 'archived_macd_membership',
+      exclusions: 2,
+      membershipEstimated: false,
+    },
+    {
+      provenance: 'partial_archived_macd_membership',
+      exclusions: 0,
+      membershipEstimated: true,
+    },
+    {
+      provenance: 'unavailable_archived_macd_membership',
+      exclusions: 0,
+      membershipEstimated: true,
+    },
+    {
+      provenance: 'partial_archived_macd_membership',
+      exclusions: 2,
+      membershipEstimated: true,
+    },
+  ])(
+    'labels $provenance coverage with $exclusions exclusions',
+    async ({ provenance, exclusions, membershipEstimated }) => {
+      getBounceResults.mockResolvedValue({
+        ok: true,
+        data: {
+          ...results.data,
+          whole_market: {
+            ...results.data.whole_market,
+            coverage: {
+              ...results.data.whole_market.coverage,
+              status: 'degraded',
+              universe_provenance: provenance,
+              exclusions_count: exclusions,
+            },
           },
         },
-      },
-    });
-    render(<App />);
+      });
+      render(<App />);
 
-    await screen.findByRole('table', { name: 'Whole Market top 20' });
-    expect(
-      screen.getByText(
-        /reconstructed universe\. Membership may be incomplete\./i
-      )
-    ).toBeVisible();
-    expect(
-      screen.queryByText(/2 tickers excluded for missing history/i)
-    ).not.toBeInTheDocument();
-  });
+      await screen.findByRole('table', { name: 'Whole Market top 20' });
+      expect(
+        Boolean(
+          screen.queryByText(/reconstructed membership may be incomplete/i)
+        )
+      ).toBe(membershipEstimated);
+      expect(
+        Boolean(
+          screen.queryByText(
+            new RegExp(
+              `${exclusions} tickers excluded for missing history`,
+              'i'
+            )
+          )
+        )
+      ).toBe(exclusions > 0);
+    }
+  );
 
   it('removes legacy workflow controls and preserves focus during status updates', async () => {
     const pending = deferred<IpcResponse<IBounceResults>>();

@@ -377,9 +377,18 @@ describe('StockBounce reflow styles', () => {
       .requireActual<typeof import('fs')>('fs')
       .readFileSync(`${process.cwd()}/src/renderer/App.css`, 'utf8');
     const bodyRule = css.match(/(?:^|\n)body\s*\{[^}]*\}/)?.[0] || '';
+    const baseFiltersIndex =
+      css.match(
+        /(?:^|\n)\.filters\s*\{[^}]*grid-template-columns:\s*minmax\(240px, 1fr\)/
+      )?.index ?? -1;
+    const responsiveFiltersIndex =
+      css.match(/\.filters\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/)
+        ?.index ?? -1;
 
     expect(bodyRule).not.toContain('min-width');
-    expect(css).toMatch(/@media \(max-width:\s*700px\)/);
+    expect(baseFiltersIndex).toBeGreaterThanOrEqual(0);
+    expect(responsiveFiltersIndex).toBeGreaterThanOrEqual(0);
+    expect(baseFiltersIndex).toBeLessThan(responsiveFiltersIndex);
     expect(css).toMatch(/\.table-scroll\s*\{[^}]*overflow-x:\s*auto/);
   });
 });
